@@ -67,12 +67,18 @@ def parse_args():
 def get_gerrit_configuration(cfg):
     result = {}
     base_error = "Configuration Error"
-    if  not cfg.has_section("gerrit"):
-        raise RuntimeError(f"{base_error}: missing gerrit section in your git configuration")
-    for key in ["user", "token", "host"]:
-        if not cfg.has_option("gerrit", key):
-            raise RuntimeError(f"{base_error}: missing option '{key}' in section gerrit in your git configuration")
-        result[key] = cfg.get("gerrit", key)
+    keys = ["user", "token", "host"]
+    if cfg.has_section("gerrit"):
+        for key in keys:
+            if not cfg.has_option("gerrit", key):
+                raise RuntimeError(f"{base_error}: missing option '{key}' in section gerrit in your git configuration")
+            result[key] = cfg.get("gerrit", key)
+    else:
+        for key in keys:
+            result[key] = os.environ.get(f"GERRIT_{key.upper()}", None)
+
+        if None in result.values():
+            raise RuntimeError(f"{base_error}: missing gerrit section in your git configuration and no fallback values in environment")
 
     return result
 
@@ -96,4 +102,5 @@ def main():
         sys.exit(1)
 
     rest = gerrit_api(gerrit_config)
-    args.cmd(gerrit_api, git_repo, args)
+    if "cmd" in args:
+        args.cmd(gerrit_api, git_repo, args)
