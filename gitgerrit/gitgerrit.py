@@ -11,9 +11,11 @@ import git
 from pygerrit2 import GerritRestAPI, HTTPBasicAuth
 from .logger import LOGGER, _APPNAME, LOG_LEVELS, log_decorator
 from ._version import get_versions
-__version__ = get_versions()['version']
-
 from pprint import pprint
+
+__version__ = get_versions()['version']
+TRIGGER_WORD="funverify"
+
 @log_decorator
 def get_git_root() -> git.repo.base.Repo:
     """ Tries to locate a the root of the current git repository and and returns Repo instance"""
@@ -23,10 +25,30 @@ def get_git_root() -> git.repo.base.Repo:
     except Exception as error:
         raise RuntimeError(f"Creating git repo object from {entry} failed with error: {error}!")
 
-def runverify(gerit_api, git_repo, args):
+def get_change_detail(rest, changeid):
+    return rest.get(f"/changes/{changeid}/detail?o=CURRENT_REVISION")
+
+def print_votes(changedata):
+    for label in ["Code-Review", "Verified"]:
+        print(f"{label}:")
+        for vote in changedata['labels'][label]['all']:
+            if vote["value"] != 0:
+                print(f" * {vote['name']:30}{vote['value']}")
+
+def trigger_run_verify(rest, changeid, revision):
+    """Adds "runverify" comment to a given review"""
+    return rest.post(f"/changes/{changeid}/revisions/{revision}/review/", return_response=True, data={"message": TRIGGER_WORD})
+
+def runverify(rest, git_repo, args):
+    response = get_change_detail(rest, args.changeid)
     if args.check:
-        print("GET RUNVERIFY STATUS", args.changeid)
+        print_votes(response)
+        # pprint(response)
     else:
+        current_rev = response["current_revision"]
+        revision = response["revisions"][current_rev]["_number"]
+        trigger_run_verify(rest, args.changeid, revision)
+
         print("TRIGGER RUNVERIFY", args.changeid)
 
 def abandon(gerit_api, git_repo, args):
@@ -47,6 +69,7 @@ def parse_args():
     )
 
     parser.add_argument("--changeid", default=None, metavar="N", type=str)
+    parser.add_argument("--commit", default=None, metavar="N", type=str)
     sub_parsers = parser.add_subparsers(help="sub-commands help")
 
     runverify_parser = sub_parsers.add_parser("runverify", help="runverify help")
@@ -61,6 +84,9 @@ def parse_args():
 
     args = parser.parse_args(sys.argv[1:])
     LOGGER.setLevel(LOG_LEVELS[args.loglevel])
+    if "cmd" not in args:
+        parser.print_help()
+        sys.exit(0)
     return args
 
 
@@ -86,7 +112,7 @@ def get_gerrit_configuration(cfg):
 def gerrit_api(gerrit_config, verify_ssl = True):
     """Returns GerritRestAPI instance with authentication details"""
     auth = HTTPBasicAuth(gerrit_config["user"], gerrit_config["token"])
-    return GerritRestAPI(url=gerrit_config["host"], auth=auth, verify=verify_ssl)
+    return GerritRestAPI(url=f"https://{gerrit_config['host']}", auth=auth, verify=verify_ssl)
 
 @log_decorator
 def main():
@@ -102,5 +128,4 @@ def main():
         sys.exit(1)
 
     rest = gerrit_api(gerrit_config)
-    if "cmd" in args:
-        args.cmd(gerrit_api, git_repo, args)
+    args.cmd(rest, git_repo, args)
