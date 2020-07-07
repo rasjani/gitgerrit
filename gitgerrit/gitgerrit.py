@@ -75,8 +75,9 @@ def parse_args():
         "-v", "--version", action="version", version="%(prog)s {version}".format(version=__version__)
     )
 
-    parser.add_argument("--changeid", default=None, metavar="N", type=str)
-    parser.add_argument("--commit", default=None, metavar="N", type=str)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--changeid", default=None, metavar="N", type=str)
+    group.add_argument("--commit", default=None, metavar="N", type=str)
     sub_parsers = parser.add_subparsers(help="sub-commands help")
 
     runverify_parser = sub_parsers.add_parser("runverify", help="runverify help")
