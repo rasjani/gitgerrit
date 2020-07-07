@@ -25,25 +25,31 @@ def get_git_root() -> git.repo.base.Repo:
     except Exception as error:
         raise RuntimeError(f"Creating git repo object from {entry} failed with error: {error}!")
 
+@log_decorator
 def get_change_detail(rest, changeid):
-    return rest.get(f"/changes/{changeid}/detail?o=CURRENT_REVISION")
+    return rest.get(f"/changes/{changeid}/detail?o=CURRENT_REVISION&o=CURRENT_COMMIT&o=WEB_LINKS")
 
+@log_decorator
 def print_votes(changedata):
     for label in ["Code-Review", "Verified"]:
         print(f"{label}:")
         for vote in changedata['labels'][label]['all']:
             if vote["value"] != 0:
                 print(f" * {vote['name']:30}{vote['value']}")
+        else:
+            print(" * No votes yet")
 
+@log_decorator
 def trigger_run_verify(rest, changeid, revision):
     """Adds "runverify" comment to a given review"""
     return rest.post(f"/changes/{changeid}/revisions/{revision}/review/", return_response=True, data={"message": TRIGGER_WORD})
 
-def runverify(rest, git_repo, args):
+@log_decorator
+def runverify(rest, git_repo, args, gerrit_config):
     response = get_change_detail(rest, args.changeid)
     if args.check:
+        print(f"https://{gerrit_config['host']}/c/{response['project']}/+/{response['_number']}")
         print_votes(response)
-        # pprint(response)
     else:
         current_rev = response["current_revision"]
         revision = response["revisions"][current_rev]["_number"]
@@ -51,11 +57,15 @@ def runverify(rest, git_repo, args):
 
         print("TRIGGER RUNVERIFY", args.changeid)
 
-def abandon(gerit_api, git_repo, args):
+@log_decorator
+def abandon(gerit_api, git_repo, args, gerrit_config):
     print("ABANDON")
 
-def topic(gerit_api, git_repo, args):
+
+@log_decorator
+def topic(gerit_api, git_repo, args, gerrit_config):
     print("TOPIC")
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -90,6 +100,7 @@ def parse_args():
     return args
 
 
+@log_decorator
 def get_gerrit_configuration(cfg):
     result = {}
     base_error = "Configuration Error"
@@ -128,4 +139,4 @@ def main():
         sys.exit(1)
 
     rest = gerrit_api(gerrit_config)
-    args.cmd(rest, git_repo, args)
+    args.cmd(rest, git_repo, args, gerrit_config)
