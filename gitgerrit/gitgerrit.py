@@ -35,12 +35,9 @@ def print_votes(changedata):
         LOGGER.info(f"{label}:")
         for vote in changedata['labels'][label]['all']:
             try:
-                if vote["value"] != 0:
-                    LOGGER.info(f" * {vote['name']:30}{vote['value']}")
+                LOGGER.info(f" * {vote['name']:30}{vote['value']}")
             except KeyError:
                 pass
-        else:
-            LOGGER.info(" * No votes yet")
 
 @log_decorator
 def trigger_run_verify(rest, changeid, revision):
