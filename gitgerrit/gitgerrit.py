@@ -8,6 +8,7 @@ import logging
 import argparse
 import sys
 import git
+import requests
 from pygerrit2 import GerritRestAPI, HTTPBasicAuth
 from .logger import LOGGER, _APPNAME, LOG_LEVELS, log_decorator
 from ._version import get_versions
@@ -27,7 +28,10 @@ def get_git_root() -> git.repo.base.Repo:
 
 @log_decorator
 def get_change_detail(rest, changeid):
-    return rest.get(f"/changes/{changeid}/detail?o=CURRENT_REVISION&o=CURRENT_COMMIT&o=WEB_LINKS")
+    try:
+        return rest.get(f"/changes/{changeid}/detail?o=CURRENT_REVISION&o=CURRENT_COMMIT&o=WEB_LINKS")
+    except requests.exceptions.HTTPError:
+        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 @log_decorator
 def print_votes(changedata):
@@ -153,4 +157,9 @@ def main():
         args.changeid = get_changeid_of_commit(git_repo, git_repo.head.commit.hexsha)
         # args.changeid = get
 
-    args.cmd(rest, git_repo, args, gerrit_config)
+    try:
+        args.cmd(rest, git_repo, args, gerrit_config)
+    except RuntimeError as e:
+        LOGGER.error(str(e))
+        sys.exit(1)
+
