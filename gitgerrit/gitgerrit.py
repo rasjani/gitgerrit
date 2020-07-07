@@ -13,7 +13,8 @@ from .logger import LOGGER, _APPNAME, LOG_LEVELS, log_decorator
 from ._version import get_versions
 
 __version__ = get_versions()['version']
-TRIGGER_WORD="funverify"
+TRIGGER_WORD = "funverify" #TODO: change to runverify after things are working
+RE_CHANGEID = re.compile(r"change-id:\s+(?P<changeid>I[a-z0-9]+)", re.IGNORECASE | re.MULTILINE)
 
 @log_decorator
 def get_git_root() -> git.repo.base.Repo:
@@ -124,6 +125,14 @@ def gerrit_api(gerrit_config, verify_ssl = True):
     return GerritRestAPI(url=f"https://{gerrit_config['host']}", auth=auth, verify=verify_ssl)
 
 @log_decorator
+def get_changeid_of_commit(git_repo, commit):
+    commit = git_repo.commit(commit)
+    search_result = RE_CHANGEID.search(commit.message)
+    if search_result:
+        return search_result.group("changeid")
+    return None
+
+@log_decorator
 def main():
     args = parse_args()
     LOGGER.debug("Hello World")
@@ -135,6 +144,13 @@ def main():
     except RuntimeError as e:
         LOGGER.error(str(e))
         sys.exit(1)
-
     rest = gerrit_api(gerrit_config)
+
+    if args.commit:
+        args.changeid = get_changeid_of_commit(git_repo, args.commit)
+
+    if not args.changeid:
+        args.changeid = get_changeid_of_commit(git_repo, git_repo.head.commit.hexsha)
+        # args.changeid = get
+
     args.cmd(rest, git_repo, args, gerrit_config)
