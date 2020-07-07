@@ -11,5 +11,6 @@ flake8-logging-format
 flake8-plugin-utils
 flake8-polyfill
 flake8-return
+black
 python-language-server[all]
 -r requirements.txt
