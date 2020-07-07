@@ -11,7 +11,6 @@ import git
 from pygerrit2 import GerritRestAPI, HTTPBasicAuth
 from .logger import LOGGER, _APPNAME, LOG_LEVELS, log_decorator
 from ._version import get_versions
-from pprint import pprint
 
 __version__ = get_versions()['version']
 TRIGGER_WORD="funverify"
@@ -32,12 +31,12 @@ def get_change_detail(rest, changeid):
 @log_decorator
 def print_votes(changedata):
     for label in ["Code-Review", "Verified"]:
-        print(f"{label}:")
+        LOGGER.info(f"{label}:")
         for vote in changedata['labels'][label]['all']:
             if vote["value"] != 0:
-                print(f" * {vote['name']:30}{vote['value']}")
+                LOGGER.info(f" * {vote['name']:30}{vote['value']}")
         else:
-            print(" * No votes yet")
+            LOGGER.info(" * No votes yet")
 
 @log_decorator
 def trigger_run_verify(rest, changeid, revision):
@@ -48,23 +47,21 @@ def trigger_run_verify(rest, changeid, revision):
 def runverify(rest, git_repo, args, gerrit_config):
     response = get_change_detail(rest, args.changeid)
     if args.check:
-        print(f"https://{gerrit_config['host']}/c/{response['project']}/+/{response['_number']}")
+        LOGGER.info(f"https://{gerrit_config['host']}/c/{response['project']}/+/{response['_number']}")
         print_votes(response)
     else:
         current_rev = response["current_revision"]
         revision = response["revisions"][current_rev]["_number"]
         trigger_run_verify(rest, args.changeid, revision)
 
-        print("TRIGGER RUNVERIFY", args.changeid)
-
 @log_decorator
 def abandon(gerit_api, git_repo, args, gerrit_config):
-    print("ABANDON")
+    LOGGER.debug("ABANDON")
 
 
 @log_decorator
 def topic(gerit_api, git_repo, args, gerrit_config):
-    print("TOPIC")
+    LOGGER.debug("TOPIC")
 
 
 def parse_args():
