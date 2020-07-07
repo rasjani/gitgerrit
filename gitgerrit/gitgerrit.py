@@ -34,8 +34,11 @@ def print_votes(changedata):
     for label in ["Code-Review", "Verified"]:
         LOGGER.info(f"{label}:")
         for vote in changedata['labels'][label]['all']:
-            if vote["value"] != 0:
-                LOGGER.info(f" * {vote['name']:30}{vote['value']}")
+            try:
+                if vote["value"] != 0:
+                    LOGGER.info(f" * {vote['name']:30}{vote['value']}")
+            except KeyError:
+                pass
         else:
             LOGGER.info(" * No votes yet")
 
