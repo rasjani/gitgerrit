@@ -10,7 +10,7 @@ from .logger import LOGGER, _APPNAME, LOG_LEVELS, log_decorator
 from ._version import get_versions
 
 __version__ = get_versions()["version"]
-TRIGGER_WORD = "funverify"  # TODO: change to runverify after things are working
+TRIGGER_WORD = "runverify"
 RE_CHANGEID = re.compile(r"change-id:\s+(?P<changeid>I[a-z0-9]+)", re.IGNORECASE | re.MULTILINE)
 
 
