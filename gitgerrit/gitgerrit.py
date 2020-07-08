@@ -37,11 +37,11 @@ def get_change_detail(rest, changeid):
 def print_votes(changedata):
     for label in ["Code-Review", "Verified"]:
         LOGGER.info(f"{label}:")
-        for vote in changedata['labels'][label]['all']:
-            try:
+        try:
+            for vote in changedata['labels'][label]['all']:
                 LOGGER.info(f" * {vote['name']:30}{vote['value']}")
-            except KeyError:
-                pass
+        except KeyError:
+            pass
 
 @log_decorator
 def trigger_run_verify(rest, changeid, revision):
