@@ -9,6 +9,7 @@ import argparse
 import sys
 import git
 import requests
+import json
 from pygerrit2 import GerritRestAPI, HTTPBasicAuth
 from .logger import LOGGER, _APPNAME, LOG_LEVELS, log_decorator
 from ._version import get_versions
@@ -80,6 +81,10 @@ def parse_args():
         "-v", "--version", action="version", version="%(prog)s {version}".format(version=__version__)
     )
 
+    parser.add_argument(
+        "--support-chain", action="store_true", default=False, help="Always operate on top of the commit chain"
+    )
+
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--changeid", default=None, metavar="N", type=str)
     group.add_argument("--commit", default=None, metavar="N", type=str)
@@ -136,12 +141,19 @@ def get_changeid_of_commit(git_repo, commit):
         return search_result.group("changeid")
     return None
 
+
+def get_changes_submitted_together(rest, changeid):
+    try:
+        res = rest.get(f"/changes/{changeid}/revisions/current/related")
+        return res
+    except requests.exceptions.HTTPError:
+        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+
 @log_decorator
 def main():
     args = parse_args()
     LOGGER.debug("Hello World")
     git_repo = get_git_root()
-
     git_config = git_repo.config_reader()
     try:
         gerrit_config = get_gerrit_configuration(git_config)
@@ -151,11 +163,20 @@ def main():
     rest = gerrit_api(gerrit_config)
 
     if args.commit:
+        LOGGER.debug("commit specified, reading changeid")
         args.changeid = get_changeid_of_commit(git_repo, args.commit)
 
     if not args.changeid:
+        LOGGER.debug("change id is not set, reading changing from HEAD")
         args.changeid = get_changeid_of_commit(git_repo, git_repo.head.commit.hexsha)
-        # args.changeid = get
+
+    if args.support_chain:
+        response = get_changes_submitted_together(rest, args.changeid)
+        if response["changes"]:
+            args.commit_chain = list(map(lambda change: change["change_id"], response["changes"]))
+            LOGGER.debug(f"Due to commit chains support, changeid ({args.changeid}) is switched to top of the commit chain ({args.commit_chain[0]})")
+            LOGGER.debug(args.commit_chain)
+            args.changeid = args.commit_chain[0]
 
     try:
         args.cmd(rest, git_repo, args, gerrit_config)
