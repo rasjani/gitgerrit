@@ -62,18 +62,38 @@ def runverify(rest, git_repo, args, gerrit_config):
 
 
 @log_decorator
-def abandon(gerit_api, git_repo, args, gerrit_config):
+def abandon(gerrit_api, git_repo, args, gerrit_config):
     chain = args.commit_chain or [args.changeid]
     output_buffer = "Abandoning following changes:\n * {changes}\n".format(changes="\n * ".join(chain))
     LOGGER.info(output_buffer)
     for change in chain:
         abandon_change(gerrit_api, change)
 
+@log_decorator
+def change_topic(gerrit_api, changeid, topic):
+    try:
+        return gerrit_api.put(f"/changes/{changeid}/topic", data={"topic": topic})
+    except requests.exceptions.HTTPError:
+        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+    return gerrit_api.put(f"/changes/{changeid}/topic", data={"topic": topic})
 
 @log_decorator
-def topic(gerit_api, git_repo, args, gerrit_config):
+def topic(gerrit_api, git_repo, args, gerrit_config):
     chain = args.commit_chain or [args.changeid]
 
+    if args.check:
+        LOGGER.info("List of topics:")
+        for change in chain:
+            change_details = get_change_detail(gerrit_api, change)
+            LOGGER.info(f" * {change} - {change_details['topic']}")
+    else:
+        if len(chain)>1:
+            LOGGER.info(f"Changing topic of the commit chain parents to {topic}")
+            for change in chain[1:]:
+                change_topic(gerrit_api,  change, args.topic)
+        else:
+            LOGGER.info(f"Changing topic the commit to {topic}")
+            change_topic(gerrit_api,  chain[0], args.topic)
 
 
 def parse_args():
@@ -95,6 +115,8 @@ def parse_args():
     runverify_parser.set_defaults(cmd=runverify)
 
     topic_parser = sub_parsers.add_parser("topic", help="topic help")
+    topic_parser.add_argument("-c", "--check", action="store_true", default=False, help="print current topic(s)")
+    topic_parser.add_argument("-s", "--set", dest="topic", default="NOCI", help="Topic to set, defaults to NOCI")
     topic_parser.set_defaults(cmd=topic)
 
     abandon_parser = sub_parsers.add_parser("abandon", help="abandon help")
