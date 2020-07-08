@@ -63,12 +63,17 @@ def runverify(rest, git_repo, args, gerrit_config):
 
 @log_decorator
 def abandon(gerit_api, git_repo, args, gerrit_config):
-    LOGGER.debug("ABANDON")
+    chain = args.commit_chain or [args.changeid]
+    output_buffer = "Abandoning following changes:\n * {changes}\n".format(changes="\n * ".join(chain))
+    LOGGER.info(output_buffer)
+    for change in chain:
+        abandon_change(gerrit_api, change)
 
 
 @log_decorator
 def topic(gerit_api, git_repo, args, gerrit_config):
-    LOGGER.debug("TOPIC")
+    chain = args.commit_chain or [args.changeid]
+
 
 
 def parse_args():
@@ -140,7 +145,15 @@ def get_changeid_of_commit(git_repo, commit):
         return search_result.group("changeid")
     return None
 
+@log_decorator
+def abandon_change(rest, changeid):
+    try:
+        #return rest.post(f"/changes/{changeid}/abandon")
+        return
+    except requests.exceptions.HTTPError:
+        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
+@log_decorator
 def get_changes_submitted_together(rest, changeid):
     try:
         return rest.get(f"/changes/{changeid}/revisions/current/related")
@@ -160,7 +173,7 @@ def main():
         LOGGER.error(str(e))
         sys.exit(1)
     rest = gerrit_api(gerrit_config)
-
+    args.commit_chain = None
     if args.commit:
         LOGGER.debug("commit specified, reading changeid")
         args.changeid = get_changeid_of_commit(git_repo, args.commit)
