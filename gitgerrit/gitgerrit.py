@@ -1,22 +1,18 @@
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from subprocess import run, CalledProcessError, CompletedProcess
-from datetime import datetime
 import os
 import re
-import logging
 import argparse
 import sys
 import git
 import requests
-import json
 from pygerrit2 import GerritRestAPI, HTTPBasicAuth
 from .logger import LOGGER, _APPNAME, LOG_LEVELS, log_decorator
 from ._version import get_versions
 
-__version__ = get_versions()['version']
-TRIGGER_WORD = "funverify" #TODO: change to runverify after things are working
+__version__ = get_versions()["version"]
+TRIGGER_WORD = "funverify"  # TODO: change to runverify after things are working
 RE_CHANGEID = re.compile(r"change-id:\s+(?P<changeid>I[a-z0-9]+)", re.IGNORECASE | re.MULTILINE)
+
 
 @log_decorator
 def get_git_root() -> git.repo.base.Repo:
@@ -27,6 +23,7 @@ def get_git_root() -> git.repo.base.Repo:
     except Exception as error:
         raise RuntimeError(f"Creating git repo object from {entry} failed with error: {error}!")
 
+
 @log_decorator
 def get_change_detail(rest, changeid):
     try:
@@ -34,20 +31,23 @@ def get_change_detail(rest, changeid):
     except requests.exceptions.HTTPError:
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
+
 @log_decorator
 def print_votes(changedata):
     for label in ["Code-Review", "Verified"]:
         LOGGER.info(f"{label}:")
         try:
-            for vote in changedata['labels'][label]['all']:
+            for vote in changedata["labels"][label]["all"]:
                 LOGGER.info(f" * {vote['name']:30}{vote['value']}")
         except KeyError:
             pass
+
 
 @log_decorator
 def trigger_run_verify(rest, changeid, revision):
     """Adds "runverify" comment to a given review"""
     return rest.post(f"/changes/{changeid}/revisions/{revision}/review/", return_response=True, data={"message": TRIGGER_WORD})
+
 
 @log_decorator
 def runverify(rest, git_repo, args, gerrit_config):
@@ -60,6 +60,7 @@ def runverify(rest, git_repo, args, gerrit_config):
         revision = response["revisions"][current_rev]["_number"]
         trigger_run_verify(rest, args.changeid, revision)
 
+
 @log_decorator
 def abandon(gerit_api, git_repo, args, gerrit_config):
     LOGGER.debug("ABANDON")
@@ -71,19 +72,13 @@ def topic(gerit_api, git_repo, args, gerrit_config):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        prog=_APPNAME, description="yey", formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    parser = argparse.ArgumentParser(prog=_APPNAME, description="yey", formatter_class=argparse.RawDescriptionHelpFormatter,)
     parser.add_argument(
         "-l", "--loglevel", default="info", dest="loglevel", choices=list(LOG_LEVELS.keys())[1:], help="Log Level"
     )
-    parser.add_argument(
-        "-v", "--version", action="version", version="%(prog)s {version}".format(version=__version__)
-    )
+    parser.add_argument("-v", "--version", action="version", version="%(prog)s {version}".format(version=__version__))
 
-    parser.add_argument(
-        "--support-chain", action="store_true", default=False, help="Always operate on top of the commit chain"
-    )
+    parser.add_argument("--support-chain", action="store_true", default=False, help="Always operate on top of the commit chain")
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--changeid", default=None, metavar="N", type=str)
@@ -91,7 +86,7 @@ def parse_args():
     sub_parsers = parser.add_subparsers(help="sub-commands help")
 
     runverify_parser = sub_parsers.add_parser("runverify", help="runverify help")
-    runverify_parser.add_argument("-c","--check", action="store_true", default=False, help="check current status")
+    runverify_parser.add_argument("-c", "--check", action="store_true", default=False, help="check current status")
     runverify_parser.set_defaults(cmd=runverify)
 
     topic_parser = sub_parsers.add_parser("topic", help="topic help")
@@ -123,15 +118,19 @@ def get_gerrit_configuration(cfg):
             result[key] = os.environ.get(f"GERRIT_{key.upper()}", None)
 
         if None in result.values():
-            raise RuntimeError(f"{base_error}: missing gerrit section in your git configuration and no fallback values in environment")
+            raise RuntimeError(
+                f"{base_error}: missing gerrit section in your git configuration and no fallback values in environment"
+            )
 
     return result
 
+
 @log_decorator
-def gerrit_api(gerrit_config, verify_ssl = True):
+def gerrit_api(gerrit_config, verify_ssl=True):
     """Returns GerritRestAPI instance with authentication details"""
     auth = HTTPBasicAuth(gerrit_config["user"], gerrit_config["token"])
     return GerritRestAPI(url=f"https://{gerrit_config['host']}", auth=auth, verify=verify_ssl)
+
 
 @log_decorator
 def get_changeid_of_commit(git_repo, commit):
@@ -144,10 +143,10 @@ def get_changeid_of_commit(git_repo, commit):
 
 def get_changes_submitted_together(rest, changeid):
     try:
-        res = rest.get(f"/changes/{changeid}/revisions/current/related")
-        return res
+        return rest.get(f"/changes/{changeid}/revisions/current/related")
     except requests.exceptions.HTTPError:
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+
 
 @log_decorator
 def main():
@@ -174,7 +173,9 @@ def main():
         response = get_changes_submitted_together(rest, args.changeid)
         if response["changes"]:
             args.commit_chain = list(map(lambda change: change["change_id"], response["changes"]))
-            LOGGER.debug(f"Due to commit chains support, changeid ({args.changeid}) is switched to top of the commit chain ({args.commit_chain[0]})")
+            LOGGER.debug(
+                f"Due to commit chains support, changeid ({args.changeid}) is switched to top of the commit chain ({args.commit_chain[0]})"
+            )
             LOGGER.debug(args.commit_chain)
             args.changeid = args.commit_chain[0]
 
@@ -183,4 +184,3 @@ def main():
     except RuntimeError as e:
         LOGGER.error(str(e))
         sys.exit(1)
-

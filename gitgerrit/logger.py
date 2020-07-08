@@ -1,4 +1,5 @@
 import logging
+
 LOG_LEVELS = {
     "notset": logging.NOTSET,
     "debug": logging.DEBUG,
@@ -20,6 +21,6 @@ def log_decorator(wrapped):
         LOGGER.debug("{}({}) [ENTERING]".format(wrapped.__name__, arguments))
         result = wrapped(*args, **kwargs)
         LOGGER.debug("{}() [LEAVING]".format(wrapped.__name__))
-        return result
+        return result  # noqa: R504
 
     return log_enter_exit

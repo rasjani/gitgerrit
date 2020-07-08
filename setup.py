@@ -46,6 +46,6 @@ setup(
     install_requires=REQUIREMENTS,
     keywords="git gerrit ci",
     platforms="any",
-    entry_points={'console_scripts': ['git-gerrit=gitgerrit:main'], },
+    entry_points={"console_scripts": ["git-gerrit=gitgerrit:main"],},
     packages=[TOOL_NAME],
 )

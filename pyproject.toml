@@ -7,6 +7,8 @@ exclude = '''
     | \.git
     | \venv
     | \.venv
+    | \gitgerrit\_version.py
+    | versioneer.py
   )/
 )
 '''

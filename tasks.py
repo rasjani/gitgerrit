@@ -6,7 +6,7 @@ import os
 import shutil
 
 
-QUOTE = "\"" if os.name == "nt" else "'"
+QUOTE = '"' if os.name == "nt" else "'"
 
 CHANGELOG = "CHANGELOG"
 filters = ["poc", "new release", "wip", "cleanup", "!nocl"]
@@ -31,10 +31,11 @@ def flake(ctx):
     """Runs flake8 against whole project"""
     ctx.run("flake8")
 
+
 @task
 def black(ctx):
     """Reformat code with black"""
-    ctx.run("black -l130 -tpy37 src")
+    ctx.run("black -l130 -tpy37 .")
 
 
 @task
@@ -46,8 +47,10 @@ def changelog(ctx, version=None):
     ctx.run(f"gcg -x -o {CHANGELOG} -O rpm {version}")
     filter_entries(CHANGELOG)
 
+
 def build(ctx):
     pass
+
 
 @task
 def release(ctx, version=None):
