@@ -136,11 +136,13 @@ def get_gerrit_configuration(cfg):
     base_error = "Configuration Error"
     keys = ["user", "token", "host"]
     if cfg.has_section("gerrit"):
+        LOGGER.debug("Found gerrit section in git config, using it for configuring git-gerrit")
         for key in keys:
             if not cfg.has_option("gerrit", key):
                 raise RuntimeError(f"{base_error}: missing option '{key}' in section gerrit in your git configuration")
             result[key] = cfg.get("gerrit", key)
     else:
+        LOGGER.debug("No gerrit section in git config, using environment variables as fallback configuration")
         for key in keys:
             result[key] = os.environ.get(f"GERRIT_{key.upper()}", None)
 
@@ -153,10 +155,15 @@ def get_gerrit_configuration(cfg):
 
 
 @log_decorator
-def gerrit_api(gerrit_config, verify_ssl=True):
+def get_gerrit_api(gerrit_config, verify_ssl=True):
     """Returns GerritRestAPI instance with authentication details"""
     auth = HTTPBasicAuth(gerrit_config["user"], gerrit_config["token"])
-    return GerritRestAPI(url=f"https://{gerrit_config['host']}", auth=auth, verify=verify_ssl)
+    rest = GerritRestAPI(url=f"https://{gerrit_config['host']}", auth=auth, verify=verify_ssl)
+    log_cfg = gerrit_config.copy()
+    log_cfg["token"] = "<HIDDEN>"
+    LOGGER.debug(f"Config: {log_cfg}")
+    LOGGER.debug(f"Url: {rest.url}")
+    return rest
 
 
 @log_decorator
@@ -186,7 +193,6 @@ def get_changes_submitted_together(rest, changeid):
 @log_decorator
 def main():
     args = parse_args()
-    LOGGER.debug("Hello World")
     git_repo = get_git_root()
     git_config = git_repo.config_reader()
     try:
@@ -194,7 +200,7 @@ def main():
     except RuntimeError as e:
         LOGGER.error(str(e))
         sys.exit(1)
-    rest = gerrit_api(gerrit_config)
+    rest = get_gerrit_api(gerrit_config)
     args.commit_chain = None
     if args.commit:
         LOGGER.debug("commit specified, reading changeid")
