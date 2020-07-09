@@ -70,6 +70,14 @@ def workinprogress(gerrit_api, git_repo, args, gerrit_config):
         mark_as_work_in_progress(gerrit_api, change, args.message)
 
 @log_decorator
+def readyforreview(gerrit_api, git_repo, args, gerrit_config):
+    chain = args.commit_chain or [args.changeid]
+    output_buffer = "Marking following changes as ready for review:\n * {changes}\n".format(changes="\n * ".join(chain))
+    LOGGER.info(output_buffer)
+    for change in chain:
+        mark_as_ready_for_review(gerrit_api, change, args.message)
+
+@log_decorator
 def abandon(gerrit_api, git_repo, args, gerrit_config):
     chain = args.commit_chain or [args.changeid]
     output_buffer = "Abandoning following changes:\n * {changes}\n".format(changes="\n * ".join(chain))
@@ -135,6 +143,10 @@ def parse_args():
     wip_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
     wip_parser.set_defaults(cmd=workinprogress)
 
+    rfr_parser = sub_parsers.add_parser("ready", "ready-for-review help")
+    rfr_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
+    rfr_parser.set_defaults(cmd=readyforreview)
+
     args = parser.parse_args(sys.argv[1:])
     LOGGER.setLevel(LOG_LEVELS[args.loglevel])
     if "cmd" not in args:
@@ -194,6 +206,19 @@ def abandon_change(rest, changeid):
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+
+@log_decorator
+def mark_as_ready_for_review(rest, changeid, message=None):
+    payload = None
+    if message:
+        payload = {"message": message}
+
+    try:
+        return rest.post(f"/changes/{changeid}/ready", data=message)
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
+        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+
 
 @log_decorator
 def mark_as_work_in_progress(rest, changeid, message=None):
