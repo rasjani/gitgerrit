@@ -61,6 +61,7 @@ def runverify(rest, git_repo, args, gerrit_config):
         revision = response["revisions"][current_rev]["_number"]
         trigger_run_verify(rest, args.changeid, revision)
 
+
 @log_decorator
 def workinprogress(gerrit_api, git_repo, args, gerrit_config):
     chain = args.commit_chain or [args.changeid]
@@ -69,6 +70,27 @@ def workinprogress(gerrit_api, git_repo, args, gerrit_config):
     for change in chain:
         mark_as_work_in_progress(gerrit_api, change, args.message)
 
+
+@log_decorator
+def makepublic(gerrit_api, git_repo, args, gerrit_config):
+    chain = args.commit_chain or [args.changeid]
+    output_buffer = "Marking following changes as public:\n * {changes}\n".format(changes="\n * ".join(chain))
+    LOGGER.info(output_buffer)
+    for change in chain:
+        mark_as_public(gerrit_api, change, args.message)
+
+
+@log_decorator
+@log_decorator
+def makeprivate(gerrit_api, git_repo, args, gerrit_config):
+    chain = args.commit_chain or [args.changeid]
+    output_buffer = "Marking following changes as private:\n * {changes}\n".format(changes="\n * ".join(chain))
+    LOGGER.info(output_buffer)
+    for change in chain:
+        mark_as_private(gerrit_api, change, args.message)
+
+
+@log_decorator
 @log_decorator
 def readyforreview(gerrit_api, git_repo, args, gerrit_config):
     chain = args.commit_chain or [args.changeid]
@@ -76,6 +98,7 @@ def readyforreview(gerrit_api, git_repo, args, gerrit_config):
     LOGGER.info(output_buffer)
     for change in chain:
         mark_as_ready_for_review(gerrit_api, change, args.message)
+
 
 @log_decorator
 def abandon(gerrit_api, git_repo, args, gerrit_config):
@@ -85,6 +108,7 @@ def abandon(gerrit_api, git_repo, args, gerrit_config):
     for change in chain:
         abandon_change(gerrit_api, change)
 
+
 @log_decorator
 def change_topic(gerrit_api, changeid, topic):
     try:
@@ -93,6 +117,7 @@ def change_topic(gerrit_api, changeid, topic):
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
     return gerrit_api.put(f"/changes/{changeid}/topic", data={"topic": topic})
+
 
 @log_decorator
 def topic(gerrit_api, git_repo, args, gerrit_config):
@@ -104,13 +129,13 @@ def topic(gerrit_api, git_repo, args, gerrit_config):
             change_details = get_change_detail(gerrit_api, change)
             LOGGER.info(f" * {change} - {change_details['topic']}")
     else:
-        if len(chain)>1:
+        if len(chain) > 1:
             LOGGER.info(f"Changing topic of the commit chain parents to {topic}")
             for change in chain[1:]:
-                change_topic(gerrit_api,  change, args.topic)
+                change_topic(gerrit_api, change, args.topic)
         else:
             LOGGER.info(f"Changing topic the commit to {topic}")
-            change_topic(gerrit_api,  chain[0], args.topic)
+            change_topic(gerrit_api, chain[0], args.topic)
 
 
 def parse_args():
@@ -146,6 +171,14 @@ def parse_args():
     rfr_parser = sub_parsers.add_parser("ready", "ready-for-review help")
     rfr_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
     rfr_parser.set_defaults(cmd=readyforreview)
+
+    private_parser = sub_parsers.add_parser("private", "private help ")
+    private_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
+    private_parser.set_defaults(cmd=readyforreview)
+
+    public_parser = sub_parsers.add_parser("public", "public help ")
+    public_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
+    public_parser.set_defaults(cmd=readyforreview)
 
     args = parser.parse_args(sys.argv[1:])
     LOGGER.setLevel(LOG_LEVELS[args.loglevel])
@@ -199,6 +232,7 @@ def get_changeid_of_commit(git_repo, commit):
         return search_result.group("changeid")
     return None
 
+
 @log_decorator
 def abandon_change(rest, changeid):
     try:
@@ -207,6 +241,33 @@ def abandon_change(rest, changeid):
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
+
+@log_decorator
+def mark_as_public(rest, changeid, message=None):
+    payload = None
+    if message:
+        payload = {"message": message}
+
+    try:
+        return rest.post(f"/changes/{changeid}/ready", data=payload)
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
+        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+
+
+@log_decorator
+def mark_as_private(rest, changeid, message=None):
+    payload = None
+    if message:
+        payload = {"message": message}
+
+    try:
+        return rest.post(f"/changes/{changeid}/private", data=payload)
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
+        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+
+
 @log_decorator
 def mark_as_ready_for_review(rest, changeid, message=None):
     payload = None
@@ -214,7 +275,7 @@ def mark_as_ready_for_review(rest, changeid, message=None):
         payload = {"message": message}
 
     try:
-        return rest.post(f"/changes/{changeid}/ready", data=message)
+        return rest.post(f"/changes/{changeid}/ready", data=payload)
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
@@ -227,10 +288,11 @@ def mark_as_work_in_progress(rest, changeid, message=None):
         payload = {"message": message}
 
     try:
-        return rest.post(f"/changes/{changeid}/wip", data=message)
+        return rest.post(f"/changes/{changeid}/wip", data=payload)
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+
 
 @log_decorator
 def get_changes_submitted_together(rest, changeid):
