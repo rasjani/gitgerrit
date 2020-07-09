@@ -28,7 +28,8 @@ def get_git_root() -> git.repo.base.Repo:
 def get_change_detail(rest, changeid):
     try:
         return rest.get(f"/changes/{changeid}/detail?o=CURRENT_REVISION&o=CURRENT_COMMIT&o=WEB_LINKS")
-    except requests.exceptions.HTTPError:
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
@@ -73,7 +74,8 @@ def abandon(gerrit_api, git_repo, args, gerrit_config):
 def change_topic(gerrit_api, changeid, topic):
     try:
         return gerrit_api.put(f"/changes/{changeid}/topic", data={"topic": topic})
-    except requests.exceptions.HTTPError:
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
     return gerrit_api.put(f"/changes/{changeid}/topic", data={"topic": topic})
 
@@ -177,16 +179,17 @@ def get_changeid_of_commit(git_repo, commit):
 @log_decorator
 def abandon_change(rest, changeid):
     try:
-        #return rest.post(f"/changes/{changeid}/abandon")
-        return
-    except requests.exceptions.HTTPError:
+        return rest.post(f"/changes/{changeid}/abandon")
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 @log_decorator
 def get_changes_submitted_together(rest, changeid):
     try:
         return rest.get(f"/changes/{changeid}/revisions/current/related")
-    except requests.exceptions.HTTPError:
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
