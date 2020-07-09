@@ -61,6 +61,13 @@ def runverify(rest, git_repo, args, gerrit_config):
         revision = response["revisions"][current_rev]["_number"]
         trigger_run_verify(rest, args.changeid, revision)
 
+@log_decorator
+def workinprogress(gerrit_api, git_repo, args, gerrit_config):
+    chain = args.commit_chain or [args.changeid]
+    output_buffer = "Marking following changes as work-in-progress:\n * {changes}\n".format(changes="\n * ".join(chain))
+    LOGGER.info(output_buffer)
+    for change in chain:
+        mark_as_work_in_progress(gerrit_api, change, args.message)
 
 @log_decorator
 def abandon(gerrit_api, git_repo, args, gerrit_config):
@@ -124,6 +131,10 @@ def parse_args():
     abandon_parser = sub_parsers.add_parser("abandon", help="abandon help")
     abandon_parser.set_defaults(cmd=abandon)
 
+    wip_parser = sub_parsers.add_parser("wip", "work-in-progress help")
+    wip_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
+    wip_parser.set_defaults(cmd=workinprogress)
+
     args = parser.parse_args(sys.argv[1:])
     LOGGER.setLevel(LOG_LEVELS[args.loglevel])
     if "cmd" not in args:
@@ -180,6 +191,18 @@ def get_changeid_of_commit(git_repo, commit):
 def abandon_change(rest, changeid):
     try:
         return rest.post(f"/changes/{changeid}/abandon")
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
+        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+
+@log_decorator
+def mark_as_work_in_progress(rest, changeid, message=None):
+    payload = None
+    if message:
+        payload = {"message": message}
+
+    try:
+        return rest.post(f"/changes/{changeid}/wip", data=message)
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
