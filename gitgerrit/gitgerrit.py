@@ -249,7 +249,7 @@ def mark_as_public(rest, changeid, message=None):
         payload = {"message": message}
 
     try:
-        return rest.post(f"/changes/{changeid}/ready", data=payload)
+        return rest.post(f"/changes/{changeid}/private.delete", data=payload)
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
