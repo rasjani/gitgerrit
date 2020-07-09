@@ -164,21 +164,21 @@ def parse_args():
     abandon_parser = sub_parsers.add_parser("abandon", help="abandon help")
     abandon_parser.set_defaults(cmd=abandon)
 
-    wip_parser = sub_parsers.add_parser("wip", "work-in-progress help")
+    wip_parser = sub_parsers.add_parser("wip", help="work-in-progress help")
     wip_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
     wip_parser.set_defaults(cmd=workinprogress)
 
-    rfr_parser = sub_parsers.add_parser("ready", "ready-for-review help")
+    rfr_parser = sub_parsers.add_parser("ready", help="ready-for-review help")
     rfr_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
     rfr_parser.set_defaults(cmd=readyforreview)
 
-    private_parser = sub_parsers.add_parser("private", "private help ")
+    private_parser = sub_parsers.add_parser("private", help="private help ")
     private_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
-    private_parser.set_defaults(cmd=readyforreview)
+    private_parser.set_defaults(cmd=makeprivate)
 
-    public_parser = sub_parsers.add_parser("public", "public help ")
+    public_parser = sub_parsers.add_parser("public", help="public help ")
     public_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
-    public_parser.set_defaults(cmd=readyforreview)
+    public_parser.set_defaults(cmd=makepublic)
 
     args = parser.parse_args(sys.argv[1:])
     LOGGER.setLevel(LOG_LEVELS[args.loglevel])
