@@ -13,6 +13,21 @@ __version__ = get_versions()["version"]
 TRIGGER_WORD = "runverify"
 RE_CHANGEID = re.compile(r"change-id:\s+(?P<changeid>I[a-z0-9]+)", re.IGNORECASE | re.MULTILINE)
 
+@log_decorator
+def prepare(rest, git_repo, args, gerrit_config):
+    LOGGER.info("Preparing the change to be ready for merge\nAdds hashtags, Ready-For-Review and Public and NOCI topic to all but HEAD")
+    chain = args.commit_chain or [args.changeid]
+    change_details = get_change_detail(rest, chain[0])
+
+    topic_to_set = change_details["topic"] # set to branch name if topic is not set
+    for change in chain:
+        set_change_hashtags(rest, change, adds=[topic_to_set])
+        mark_as_public(rest, change)
+        mark_as_ready_for_review(rest, change)
+
+    for change in chain[1:]:
+        change_topic(rest, change, "NOCI")
+
 
 @log_decorator
 def set_change_hashtags(rest, change, adds=None, removes=None):
@@ -26,7 +41,8 @@ def set_change_hashtags(rest, change, adds=None, removes=None):
         return rest.post(f"/changes/{change}/hashtags", data=payload)
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
-        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
 @log_decorator
@@ -35,7 +51,8 @@ def get_change_hashtags(rest, change):
         return rest.get(f"/changes/{change}/hashtags")
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
-        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 @log_decorator
 def print_hashtags(rest, commit_chain):
@@ -69,7 +86,8 @@ def get_change_detail(rest, changeid):
         return rest.get(f"/changes/{changeid}/detail?o=CURRENT_REVISION&o=CURRENT_COMMIT&o=WEB_LINKS")
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
-        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
 @log_decorator
@@ -152,7 +170,8 @@ def change_topic(gerrit_api, changeid, topic):
         return gerrit_api.put(f"/changes/{changeid}/topic", data={"topic": topic})
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
-        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
     return gerrit_api.put(f"/changes/{changeid}/topic", data={"topic": topic})
 
 
@@ -226,6 +245,9 @@ def parse_args():
     hashtag_parser.add_argument("-d", "--del", dest="remove_tags", action="append", help="remove hashtag", default=None)
     hashtag_parser.set_defaults(cmd=hashtag)
 
+    prepare_parser = sub_parsers.add_parser("prepare", help="prepare help")
+    prepare_parser.set_defaults(cmd=prepare)
+
     args = parser.parse_args(sys.argv[1:])
     LOGGER.setLevel(LOG_LEVELS[args.loglevel])
     if "cmd" not in args:
@@ -285,7 +307,8 @@ def abandon_change(rest, changeid):
         return rest.post(f"/changes/{changeid}/abandon")
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
-        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
 @log_decorator
@@ -298,7 +321,8 @@ def mark_as_public(rest, changeid, message=None):
         return rest.post(f"/changes/{changeid}/private.delete", data=payload)
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
-        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
 @log_decorator
@@ -311,7 +335,8 @@ def mark_as_private(rest, changeid, message=None):
         return rest.post(f"/changes/{changeid}/private", data=payload)
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
-        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
 @log_decorator
@@ -324,7 +349,8 @@ def mark_as_ready_for_review(rest, changeid, message=None):
         return rest.post(f"/changes/{changeid}/ready", data=payload)
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
-        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
 @log_decorator
@@ -337,7 +363,8 @@ def mark_as_work_in_progress(rest, changeid, message=None):
         return rest.post(f"/changes/{changeid}/wip", data=payload)
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
-        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
 @log_decorator
@@ -346,7 +373,8 @@ def get_changes_submitted_together(rest, changeid):
         return rest.get(f"/changes/{changeid}/revisions/current/related")
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
-        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
 @log_decorator
