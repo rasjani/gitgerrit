@@ -131,7 +131,10 @@ def topic(gerrit_api, git_repo, args, gerrit_config):
     else:
         if len(chain) > 1:
             LOGGER.info(f"Changing topic of the commit chain parents to {args.topic}")
-            for change in chain[1:]:
+            idx = 0
+            if "NOCI" in args.topic.upper():
+                idx = 1
+            for change in chain[idx:]:
                 change_topic(gerrit_api, change, args.topic)
         else:
             LOGGER.info(f"Changing topic the commit to {topic}")
