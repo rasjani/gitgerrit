@@ -66,6 +66,9 @@ def hashtag(rest, git_repo, args, gerrit_config):
     if args.check:
         print_hashtags(rest, chain)
     else:
+        if not args.add_tags and not args.remove_tags:
+            args.add_tags = [git_repo.active_branch.name]
+
         for change in chain:
             set_change_hashtags(rest, change, args.add_tags, args.remove_tags)
 
