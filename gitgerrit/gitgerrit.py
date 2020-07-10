@@ -130,7 +130,7 @@ def topic(gerrit_api, git_repo, args, gerrit_config):
             LOGGER.info(f" * {change} - {change_details['topic']}")
     else:
         if len(chain) > 1:
-            LOGGER.info(f"Changing topic of the commit chain parents to {topic}")
+            LOGGER.info(f"Changing topic of the commit chain parents to {args.topic}")
             for change in chain[1:]:
                 change_topic(gerrit_api, change, args.topic)
         else:
