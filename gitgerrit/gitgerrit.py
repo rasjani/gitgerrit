@@ -15,6 +15,45 @@ RE_CHANGEID = re.compile(r"change-id:\s+(?P<changeid>I[a-z0-9]+)", re.IGNORECASE
 
 
 @log_decorator
+def set_change_hashtags(rest, change, adds=None, removes=None):
+    payload = {}
+    if removes:
+        payload["remove"] = removes
+    if adds:
+        payload["add"] = adds
+
+    try:
+        return rest.post(f"/changes/{change}/hashtags", data=payload)
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
+        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+
+
+@log_decorator
+def get_change_hashtags(rest, change):
+    try:
+        return rest.get(f"/changes/{change}/hashtags")
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
+        raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+
+@log_decorator
+def print_hashtags(rest, commit_chain):
+    for change in commit_chain:
+        tags = get_change_hashtags(rest, change)
+        LOGGER.info(f" * {change}: {', '.join(tags)}")
+
+@log_decorator
+def hashtag(rest, git_repo, args, gerrit_config):
+    chain = args.commit_chain or [args.changeid]
+    if args.check:
+        print_hashtags(rest, chain)
+    else:
+        for change in chain:
+            set_change_hashtags(rest, change, args.add_tags, args.remove_tags)
+
+
+@log_decorator
 def get_git_root() -> git.repo.base.Repo:
     """ Tries to locate a the root of the current git repository and and returns Repo instance"""
     try:
@@ -81,7 +120,6 @@ def makepublic(gerrit_api, git_repo, args, gerrit_config):
 
 
 @log_decorator
-@log_decorator
 def makeprivate(gerrit_api, git_repo, args, gerrit_config):
     chain = args.commit_chain or [args.changeid]
     output_buffer = "Marking following changes as private:\n * {changes}\n".format(changes="\n * ".join(chain))
@@ -90,7 +128,6 @@ def makeprivate(gerrit_api, git_repo, args, gerrit_config):
         mark_as_private(gerrit_api, change, args.message)
 
 
-@log_decorator
 @log_decorator
 def readyforreview(gerrit_api, git_repo, args, gerrit_config):
     chain = args.commit_chain or [args.changeid]
@@ -137,7 +174,7 @@ def topic(gerrit_api, git_repo, args, gerrit_config):
             for change in chain[idx:]:
                 change_topic(gerrit_api, change, args.topic)
         else:
-            LOGGER.info(f"Changing topic the commit to {topic}")
+            LOGGER.info(f"Changing topic the commit to {args.topic}")
             change_topic(gerrit_api, chain[0], args.topic)
 
 
@@ -175,13 +212,19 @@ def parse_args():
     rfr_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
     rfr_parser.set_defaults(cmd=readyforreview)
 
-    private_parser = sub_parsers.add_parser("private", help="private help ")
+    private_parser = sub_parsers.add_parser("private", help="private help")
     private_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
     private_parser.set_defaults(cmd=makeprivate)
 
-    public_parser = sub_parsers.add_parser("public", help="public help ")
+    public_parser = sub_parsers.add_parser("public", help="public help")
     public_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
     public_parser.set_defaults(cmd=makepublic)
+
+    hashtag_parser = sub_parsers.add_parser("hashtag", help="hashtag help")
+    hashtag_parser.add_argument("-c", "--check", action="store_true", default=False, help="check current tags")
+    hashtag_parser.add_argument("-a", "--add", dest="add_tags", action="append", help="add hashtag", default=None)
+    hashtag_parser.add_argument("-d", "--del", dest="remove_tags", action="append", help="remove hashtag", default=None)
+    hashtag_parser.set_defaults(cmd=hashtag)
 
     args = parser.parse_args(sys.argv[1:])
     LOGGER.setLevel(LOG_LEVELS[args.loglevel])
