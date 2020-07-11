@@ -19,9 +19,13 @@ After the package has been installed, its available via `git gerrit`.
 * `git config --add gerrit.token your_http_password`
 
 Or alternative, you can set the same values into following environment variables:
+
 * GERRIT_HOST
 * GERRIT_USER
 * GERRIT_TOKEN
+
+If you need to modify the the comment used by runverify action, you can optionally add env GERRIT_TRIGGER or gerrit.trigger
+git configuration option.
 
 ## Usage
 
