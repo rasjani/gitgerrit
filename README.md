@@ -1,7 +1,7 @@
 git-gerrit
 ==========
 
-Command line to to interact with gerrit and its ci integrations.. Made for internal use but
+Command line to to interact with gerrit codereview service and its ci integrations. Made for internal use but
 could be useful for others too.
 
 
@@ -11,52 +11,73 @@ could be useful for others too.
 
 After the package has been installed, its available via `git gerrit`.
 
+## Configuration
+
+* Generate HTTP Password in Gerrit web ui.
+* `git config --add gerrit.host hostname.of.your.gerrit.instance`
+* `git config --add gerrit.user your_user_name`
+* `git config --add gerrit.token your_http_password`
+
+Or alternative, you can set the same values into following environment variables:
+* GERRIT_HOST
+* GERRIT_USER
+* GERRIT_TOKEN
 
 ## Usage
 
-At this time, git gerrit has 3 sub commands. `runverify` `topic` & `abandon`
 
-Each of these subcommands operate at the current git branch's head commit unless you pass  `--commit N` or `--changeid N` flags.
+*git-gerrit* either works on current commit of the checked out repository if no `--commit` or `--changeid` wherent provided.
 
-If also pass `--support-chain` flag, all operations are targetting whole commit chains that.
+By default, *git-gerrit* operates on a single commit. If you want to apply your actions to each commit that are submitted
+together, provide `--support-chain` argument before action.
 
 you can also specify logging level via --loglevel=$level flag.
 
-## Configuration
+After the optional paremters that affect what change requests are being operated on, you need to provide the keyword that defines
+what action is taken against change(s)
 
-You must provide following settings in your local or global git configuration:
-```
-[gerrit]
-  token = $gerrit_restapi_token
-  user = $gerrit_username
-  host = $gerrit_hostname
-```
-
-Or, you can set corresponding environment variables: GERRIT_TOKEN, GERRIT_USER, GERRIT_HOST
+## Actions
 
 ### runverify
+Can either print out the current votes on latest revision of change(s) or adds "runverify" message to the latest revision to
+trigger a ci build of your current changes.
 
-`git gerrit runverify` will add a comment to latest revision of current comment if it ha been published into gerrit.
-If you want to add the commit to some other change, you can use `--changeid` or `--commit`
-
-If you want to to check the state votes of the change request, append `--check` flag to `runverify`
-
-### abandon
-
-`git gerrit abandon` will abandon current change request if its already in gerrit. If you have been working on a commit chain and
-you would like to abandon it as  whole:  `git gerrit --support-chain abandon`
-
+For more details: `git gerrit runverify -h`
 ### topic
+Can set or get topic into change(s)get or set topic on change(s)
 
-`git gerrit topic --check` will show all the commits/changes in gerrit in your current commit chain.
+For more details: `git gerrit runverify -h`
+### hashtag
+Get, add or remove hashtag(s) on change(s). `--add` and  `--del` flags be added to command line multiple times in order to add
+or remove multiple hashtags in one call. If no hashtags are given, defaults to adding a current branch name to change(s) list
+of hashtags
 
-If you wish to set a topic to a single commit:
+For more details: `git gerrit hashtag-h`
+### wip
+Marks change(s) as Work-In-Progress indicating that no reviewing required at the moment.
 
-`git gerrit topic --set newtopic`
+For more details: `git gerrit wip -h`
+### ready
+Marks change(s) as Ready-For-Review indicating that your changes are ready for a review
 
-Default value for topic is always "noci".
+For more details: `git gerrit ready -h`
+### private
+Marks change(s) as Private. Only people who have been added as reviewers can see the change(s)
 
-`git gerrit --support-chain topic` will set topic of all changes in your commit chain except the HEAD into "noci". Same command
-could be also written as `git gerrit --support-chain topic --set noci`
+For more details: `git gerrit private -h`
+### public
+Marks change(s) as Public. Everyone with the access to the project can then see your change(s)
 
+For more details: `git gerrit public -h`
+### prepare
+Prepares change(s) to be ready for merge. This is a group actions:
+ * Marks changes(s) as Ready-For-Review
+ * Marks changes(s) as Public
+ * Changes all changes(s) expect HEAD topic's into NOCI to avoid multiple builds when merged.
+ * Adds HEAD's topic as hashtag to change(s)
+
+For more details: `git gerrit prepare -h`
+### abandon
+Abandon change(s)
+For more details: `git gerrit abandon -h`
 
