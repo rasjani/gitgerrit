@@ -8,7 +8,7 @@ LOG_LEVELS = {
     "error": logging.ERROR,
     "critical": logging.CRITICAL,
 }
-_APPNAME = "gitgerrit"
+_APPNAME = "git-gerrit"
 logging.basicConfig(format="[%(levelname)s]: %(message)s", level=logging.INFO)
 LOGGER = logging.getLogger(_APPNAME)
 

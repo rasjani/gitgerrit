@@ -220,14 +220,16 @@ def parse_args():
     runverify_parser.set_defaults(cmd=runverify)
 
     topic_parser = sub_parsers.add_parser("topic", help="get or set topic on change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    topic_parser.add_argument("-c", "--check", action="store_true", default=False, help="get current topic(s) of change(s)")
-    topic_parser.add_argument("-s", "--set", dest="topic", default="NOCI", help="sets topic(s)")
+    topic_group = topic_parser.add_mutually_exclusive_group(required=True)
+    topic_group.add_argument("-c", "--check", action="store_true", default=False, help="get current topic(s) of change(s)")
+    topic_group.add_argument("-s", "--set", dest="topic", default="NOCI", help="sets topic(s)")
     topic_parser.set_defaults(cmd=topic)
 
     hashtag_parser = sub_parsers.add_parser("hashtag", help="get or set hashtag(s) on change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    hashtag_parser.add_argument("-c", "--check", action="store_true", default=False, help="check current tags")
-    hashtag_parser.add_argument("-a", "--add", dest="add_tags", action="append", help="add hashtag. can be defined multiple times", default=None)
-    hashtag_parser.add_argument("-d", "--del", dest="remove_tags", action="append", help="remove hashtag. can be defined multiple times", default=None)
+    hashtag_group = hashtag_parser.add_mutually_exclusive_group(required=True)
+    hashtag_group.add_argument("-c", "--check", action="store_true", default=False, help="print current hashtags")
+    hashtag_group.add_argument("-a", "--add", dest="add_tags", action="append", help="add hashtag. can be defined multiple times", default=None)
+    hashtag_group.add_argument("-d", "--del", dest="remove_tags", action="append", help="remove hashtag. can be defined multiple times", default=None)
     hashtag_parser.set_defaults(cmd=hashtag)
 
     wip_parser = sub_parsers.add_parser("wip", help="Marks change(s) as Work-In-Progress", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
