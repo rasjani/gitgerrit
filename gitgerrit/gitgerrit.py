@@ -10,16 +10,19 @@ from .logger import LOGGER, _APPNAME, LOG_LEVELS, log_decorator
 from ._version import get_versions
 
 __version__ = get_versions()["version"]
-TRIGGER_WORD = "runverify"
+DEFAULT_TRIGGER = "runverify"
 RE_CHANGEID = re.compile(r"change-id:\s+(?P<changeid>I[a-z0-9]+)", re.IGNORECASE | re.MULTILINE)
+
 
 @log_decorator
 def prepare(rest, git_repo, args, gerrit_config):
-    LOGGER.info("Preparing the change to be ready for merge\nAdds hashtags, Ready-For-Review and Public and NOCI topic to all but HEAD")
+    LOGGER.info(
+        "Preparing the change to be ready for merge\nAdds hashtags, Ready-For-Review and Public and NOCI topic to all but HEAD"
+    )
     chain = args.commit_chain or [args.changeid]
     change_details = get_change_detail(rest, chain[0])
 
-    topic_to_set = change_details["topic"] # set to branch name if topic is not set
+    topic_to_set = change_details["topic"]  # set to branch name if topic is not set
     for change in chain:
         set_change_hashtags(rest, change, adds=[topic_to_set])
         mark_as_public(rest, change)
@@ -42,7 +45,7 @@ def set_change_hashtags(rest, change, adds=None, removes=None):
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         if e.response.status_code != 409:
-            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+            raise RuntimeError(f"Provided change ({change}) cannot be found on remote gerrit server.")
 
 
 @log_decorator
@@ -52,13 +55,15 @@ def get_change_hashtags(rest, change):
     except requests.exceptions.HTTPError as e:
         LOGGER.debug(f"HTTP Error Occured: {str(e)}")
         if e.response.status_code != 409:
-            raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
+            raise RuntimeError(f"Provided change ({change}) cannot be found on remote gerrit server.")
+
 
 @log_decorator
 def print_hashtags(rest, commit_chain):
     for change in commit_chain:
         tags = get_change_hashtags(rest, change)
         LOGGER.info(f" * {change}: {', '.join(tags)}")
+
 
 @log_decorator
 def hashtag(rest, git_repo, args, gerrit_config):
@@ -105,9 +110,9 @@ def print_votes(changedata):
 
 
 @log_decorator
-def trigger_run_verify(rest, changeid, revision):
-    """Adds "runverify" comment to a given review"""
-    return rest.post(f"/changes/{changeid}/revisions/{revision}/review/", return_response=True, data={"message": TRIGGER_WORD})
+def trigger_run_verify(rest, changeid, revision, trigger):
+    """Adds trigger comment to a given review"""
+    return rest.post(f"/changes/{changeid}/revisions/{revision}/review/", return_response=True, data={"message": trigger})
 
 
 @log_decorator
@@ -119,7 +124,7 @@ def runverify(rest, git_repo, args, gerrit_config):
     else:
         current_rev = response["current_revision"]
         revision = response["revisions"][current_rev]["_number"]
-        trigger_run_verify(rest, args.changeid, revision)
+        trigger_run_verify(rest, args.changeid, revision, gerrit_config["trigger"])
 
 
 @log_decorator
@@ -201,57 +206,85 @@ def topic(gerrit_api, git_repo, args, gerrit_config):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(prog=_APPNAME, description="gerrit codereview features from command line", formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            epilog="If/when no changeid or commit is provided, operations are done against current commit in current branch")
+    parser = argparse.ArgumentParser(
+        prog=_APPNAME,
+        description="gerrit codereview features from command line",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        epilog="If/when no changeid or commit is provided, operations are done against current commit in current branch",
+    )
     parser.add_argument(
         "-l", "--loglevel", default="info", dest="loglevel", choices=list(LOG_LEVELS.keys())[1:], help="Log Level"
     )
     parser.add_argument("-v", "--version", action="version", version="%(prog)s {version}".format(version=__version__))
 
-    parser.add_argument("--support-chain", action="store_true", default=False, help="Operate on all related commits instead of single commit")
+    parser.add_argument(
+        "--support-chain", action="store_true", default=False, help="Operate on all related commits instead of single commit"
+    )
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--changeid", default=None, metavar="N", type=str, help="Gerrit Change-Id top operate on")
     group.add_argument("--commit", default=None, metavar="N", type=str, help="Commit sha to operate on")
     sub_parsers = parser.add_subparsers()
 
-    runverify_parser = sub_parsers.add_parser("runverify", help="Trigger or check +1 check state of change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    runverify_parser = sub_parsers.add_parser(
+        "runverify", help="Trigger or check +1 check state of change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     runverify_parser.add_argument("-c", "--check", action="store_true", default=False, help="Prints votes on latest revision")
     runverify_parser.set_defaults(cmd=runverify)
 
-    topic_parser = sub_parsers.add_parser("topic", help="get or set topic on change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    topic_parser = sub_parsers.add_parser(
+        "topic", help="get or set topic on change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     topic_group = topic_parser.add_mutually_exclusive_group(required=True)
     topic_group.add_argument("-c", "--check", action="store_true", default=False, help="get current topic(s) of change(s)")
     topic_group.add_argument("-s", "--set", dest="topic", default="NOCI", help="sets topic(s)")
     topic_parser.set_defaults(cmd=topic)
 
-    hashtag_parser = sub_parsers.add_parser("hashtag", help="get or set hashtag(s) on change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    hashtag_parser = sub_parsers.add_parser(
+        "hashtag", help="get or set hashtag(s) on change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     hashtag_group = hashtag_parser.add_mutually_exclusive_group(required=True)
     hashtag_group.add_argument("-c", "--check", action="store_true", default=False, help="print current hashtags")
-    hashtag_group.add_argument("-a", "--add", dest="add_tags", action="append", help="add hashtag. can be defined multiple times", default=None)
-    hashtag_group.add_argument("-d", "--del", dest="remove_tags", action="append", help="remove hashtag. can be defined multiple times", default=None)
+    hashtag_group.add_argument(
+        "-a", "--add", dest="add_tags", action="append", help="add hashtag. can be defined multiple times", default=None
+    )
+    hashtag_group.add_argument(
+        "-d", "--del", dest="remove_tags", action="append", help="remove hashtag. can be defined multiple times", default=None
+    )
     hashtag_parser.set_defaults(cmd=hashtag)
 
-    wip_parser = sub_parsers.add_parser("wip", help="Marks change(s) as Work-In-Progress", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    wip_parser = sub_parsers.add_parser(
+        "wip", help="Marks change(s) as Work-In-Progress", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     wip_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional reason for state change")
     wip_parser.set_defaults(cmd=workinprogress)
 
-    rfr_parser = sub_parsers.add_parser("ready", help="Marks change(s) as Ready-For-Review", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    rfr_parser = sub_parsers.add_parser(
+        "ready", help="Marks change(s) as Ready-For-Review", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     rfr_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional reason for state change")
     rfr_parser.set_defaults(cmd=readyforreview)
 
-    private_parser = sub_parsers.add_parser("private", help="Marks change(s) as Private", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    private_parser = sub_parsers.add_parser(
+        "private", help="Marks change(s) as Private", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     private_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional reason for state change")
     private_parser.set_defaults(cmd=makeprivate)
 
-    public_parser = sub_parsers.add_parser("public", help="Marks change(s) as Public", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    public_parser = sub_parsers.add_parser(
+        "public", help="Marks change(s) as Public", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     public_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional reason for state change")
     public_parser.set_defaults(cmd=makepublic)
 
-    prepare_parser = sub_parsers.add_parser("prepare", help="prepares change(s) to be ready for merge", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    prepare_parser = sub_parsers.add_parser(
+        "prepare", help="prepares change(s) to be ready for merge", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     prepare_parser.set_defaults(cmd=prepare)
 
-    abandon_parser = sub_parsers.add_parser("abandon", help="abandon change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    abandon_parser = sub_parsers.add_parser(
+        "abandon", help="abandon change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     abandon_parser.set_defaults(cmd=abandon)
 
     args = parser.parse_args(sys.argv[1:])
@@ -273,11 +306,16 @@ def get_gerrit_configuration(cfg):
             if not cfg.has_option("gerrit", key):
                 raise RuntimeError(f"{base_error}: missing option '{key}' in section gerrit in your git configuration")
             result[key] = cfg.get("gerrit", key)
+        if cfg.has_option("gerrit", "trigger"):
+            result["trigger"] = cfg.get("gerrit", "trigger")
+        else:
+            result["trigger"] = DEFAULT_TRIGGER
     else:
         LOGGER.debug("No gerrit section in git config, using environment variables as fallback configuration")
         for key in keys:
             result[key] = os.environ.get(f"GERRIT_{key.upper()}", None)
 
+        result["trigger"] = os.environ.get("GERRIT_TRIGGER", DEFAULT_TRIGGER)
         if None in result.values():
             raise RuntimeError(
                 f"{base_error}: missing gerrit section in your git configuration and no fallback values in environment"
