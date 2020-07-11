@@ -201,55 +201,56 @@ def topic(gerrit_api, git_repo, args, gerrit_config):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(prog=_APPNAME, description="yey", formatter_class=argparse.RawDescriptionHelpFormatter,)
+    parser = argparse.ArgumentParser(prog=_APPNAME, description="gerrit codereview features from command line", formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            epilog="If/when no changeid or commit is provided, operations are done against current commit in current branch")
     parser.add_argument(
         "-l", "--loglevel", default="info", dest="loglevel", choices=list(LOG_LEVELS.keys())[1:], help="Log Level"
     )
     parser.add_argument("-v", "--version", action="version", version="%(prog)s {version}".format(version=__version__))
 
-    parser.add_argument("--support-chain", action="store_true", default=False, help="Always operate on top of the commit chain")
+    parser.add_argument("--support-chain", action="store_true", default=False, help="Operate on all related commits instead of single commit")
 
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--changeid", default=None, metavar="N", type=str)
-    group.add_argument("--commit", default=None, metavar="N", type=str)
-    sub_parsers = parser.add_subparsers(help="sub-commands help")
+    group.add_argument("--changeid", default=None, metavar="N", type=str, help="Gerrit Change-Id top operate on")
+    group.add_argument("--commit", default=None, metavar="N", type=str, help="Commit sha to operate on")
+    sub_parsers = parser.add_subparsers()
 
-    runverify_parser = sub_parsers.add_parser("runverify", help="runverify help")
-    runverify_parser.add_argument("-c", "--check", action="store_true", default=False, help="check current status")
+    runverify_parser = sub_parsers.add_parser("runverify", help="Trigger or check +1 check state of change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    runverify_parser.add_argument("-c", "--check", action="store_true", default=False, help="Prints votes on latest revision")
     runverify_parser.set_defaults(cmd=runverify)
 
-    topic_parser = sub_parsers.add_parser("topic", help="topic help")
-    topic_parser.add_argument("-c", "--check", action="store_true", default=False, help="print current topic(s)")
-    topic_parser.add_argument("-s", "--set", dest="topic", default="NOCI", help="Topic to set, defaults to NOCI")
+    topic_parser = sub_parsers.add_parser("topic", help="get or set topic on change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    topic_parser.add_argument("-c", "--check", action="store_true", default=False, help="get current topic(s) of change(s)")
+    topic_parser.add_argument("-s", "--set", dest="topic", default="NOCI", help="sets topic(s)")
     topic_parser.set_defaults(cmd=topic)
 
-    abandon_parser = sub_parsers.add_parser("abandon", help="abandon help")
-    abandon_parser.set_defaults(cmd=abandon)
-
-    wip_parser = sub_parsers.add_parser("wip", help="work-in-progress help")
-    wip_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
-    wip_parser.set_defaults(cmd=workinprogress)
-
-    rfr_parser = sub_parsers.add_parser("ready", help="ready-for-review help")
-    rfr_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
-    rfr_parser.set_defaults(cmd=readyforreview)
-
-    private_parser = sub_parsers.add_parser("private", help="private help")
-    private_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
-    private_parser.set_defaults(cmd=makeprivate)
-
-    public_parser = sub_parsers.add_parser("public", help="public help")
-    public_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional message")
-    public_parser.set_defaults(cmd=makepublic)
-
-    hashtag_parser = sub_parsers.add_parser("hashtag", help="hashtag help")
+    hashtag_parser = sub_parsers.add_parser("hashtag", help="get or set hashtag(s) on change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     hashtag_parser.add_argument("-c", "--check", action="store_true", default=False, help="check current tags")
-    hashtag_parser.add_argument("-a", "--add", dest="add_tags", action="append", help="add hashtag", default=None)
-    hashtag_parser.add_argument("-d", "--del", dest="remove_tags", action="append", help="remove hashtag", default=None)
+    hashtag_parser.add_argument("-a", "--add", dest="add_tags", action="append", help="add hashtag. can be defined multiple times", default=None)
+    hashtag_parser.add_argument("-d", "--del", dest="remove_tags", action="append", help="remove hashtag. can be defined multiple times", default=None)
     hashtag_parser.set_defaults(cmd=hashtag)
 
-    prepare_parser = sub_parsers.add_parser("prepare", help="prepare help")
+    wip_parser = sub_parsers.add_parser("wip", help="Marks change(s) as Work-In-Progress", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    wip_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional reason for state change")
+    wip_parser.set_defaults(cmd=workinprogress)
+
+    rfr_parser = sub_parsers.add_parser("ready", help="Marks change(s) as Ready-For-Review", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    rfr_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional reason for state change")
+    rfr_parser.set_defaults(cmd=readyforreview)
+
+    private_parser = sub_parsers.add_parser("private", help="Marks change(s) as Private", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    private_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional reason for state change")
+    private_parser.set_defaults(cmd=makeprivate)
+
+    public_parser = sub_parsers.add_parser("public", help="Marks change(s) as Public", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    public_parser.add_argument("-m", "--message", dest="message", default=None, help="Optional reason for state change")
+    public_parser.set_defaults(cmd=makepublic)
+
+    prepare_parser = sub_parsers.add_parser("prepare", help="prepares change(s) to be ready for merge", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     prepare_parser.set_defaults(cmd=prepare)
+
+    abandon_parser = sub_parsers.add_parser("abandon", help="abandon change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    abandon_parser.set_defaults(cmd=abandon)
 
     args = parser.parse_args(sys.argv[1:])
     LOGGER.setLevel(LOG_LEVELS[args.loglevel])
