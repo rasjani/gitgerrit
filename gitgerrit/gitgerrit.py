@@ -201,6 +201,9 @@ def topic(gerrit_api, git_repo, args, gerrit_config):
             for change in chain[idx:]:
                 change_topic(gerrit_api, change, args.topic)
         else:
+            if args.support_chain and "NOCI" in args.topic.upper():
+                raise RuntimeError(f"Your commit chain has only 1 change, cannot set topic to {args.topic}")
+
             LOGGER.info(f"Changing topic the commit to {args.topic}")
             change_topic(gerrit_api, chain[0], args.topic)
 
