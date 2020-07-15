@@ -46,6 +46,8 @@ what action is taken against change(s)
 Can either print out the current votes on latest revision of change(s) or adds "runverify" message to the latest revision to
 trigger a ci build of your current changes.
 
+"runverify" trigger message can be customized by setting `gerrit.trigger` git config or by GERRIT_TRIGGER environment variable.
+
 For more details: `git gerrit runverify -h`
 ### topic
 Can set or get topic into change(s)get or set topic on change(s)
