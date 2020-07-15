@@ -11,13 +11,14 @@ from ._version import get_versions
 
 __version__ = get_versions()["version"]
 DEFAULT_TRIGGER = "runverify"
+DEFAULT_PREVENT_BUILD_TOPIC = "NOCI"
 RE_CHANGEID = re.compile(r"change-id:\s+(?P<changeid>I[a-z0-9]+)", re.IGNORECASE | re.MULTILINE)
 
 
 @log_decorator
 def prepare(rest, git_repo, args, gerrit_config):
     LOGGER.info(
-        "Preparing the change to be ready for merge\nAdds hashtags, Ready-For-Review and Public and NOCI topic to all but HEAD"
+        f"Preparing the change to be ready for merge\nAdds hashtags, Ready-For-Review and Public and {gerrit_config['prevent_build_topic']} topic to all but HEAD"
     )
     chain = args.commit_chain or [args.changeid]
     change_details = get_change_detail(rest, chain[0])
@@ -29,7 +30,7 @@ def prepare(rest, git_repo, args, gerrit_config):
         mark_as_ready_for_review(rest, change)
 
     for change in chain[1:]:
-        change_topic(rest, change, "NOCI")
+        change_topic(rest, change, gerrit_config["prevent_build_topic"])
 
 
 @log_decorator
@@ -196,19 +197,19 @@ def topic(gerrit_api, git_repo, args, gerrit_config):
         if len(chain) > 1:
             LOGGER.info(f"Changing topic of the commit chain parents to {args.topic}")
             idx = 0
-            if "NOCI" in args.topic.upper():
+            if gerrit_config["prevent_build_topic"] in args.topic.upper():
                 idx = 1
             for change in chain[idx:]:
                 change_topic(gerrit_api, change, args.topic)
         else:
-            if args.support_chain and "NOCI" in args.topic.upper():
+            if args.support_chain and gerrit_config["prevent_build_topic"] in args.topic.upper():
                 raise RuntimeError(f"Your commit chain has only 1 change, cannot set topic to {args.topic}")
 
             LOGGER.info(f"Changing topic the commit to {args.topic}")
             change_topic(gerrit_api, chain[0], args.topic)
 
 
-def parse_args():
+def parse_args(gerrit_config):
     parser = argparse.ArgumentParser(
         prog=_APPNAME,
         description="gerrit codereview features from command line",
@@ -240,7 +241,7 @@ def parse_args():
     )
     topic_group = topic_parser.add_mutually_exclusive_group(required=True)
     topic_group.add_argument("-c", "--check", action="store_true", default=False, help="get current topic(s) of change(s)")
-    topic_group.add_argument("-s", "--set", dest="topic", default="NOCI", help="sets topic(s)")
+    topic_group.add_argument("-s", "--set", dest="topic", default=gerrit_config["prevent_build_topic"], help="sets topic(s)")
     topic_parser.set_defaults(cmd=topic)
 
     hashtag_parser = sub_parsers.add_parser(
@@ -309,16 +310,23 @@ def get_gerrit_configuration(cfg):
             if not cfg.has_option("gerrit", key):
                 raise RuntimeError(f"{base_error}: missing option '{key}' in section gerrit in your git configuration")
             result[key] = cfg.get("gerrit", key)
+
         if cfg.has_option("gerrit", "trigger"):
             result["trigger"] = cfg.get("gerrit", "trigger")
         else:
             result["trigger"] = DEFAULT_TRIGGER
+
+        if cfg.has_option("gerrit", "prevent_build_topic"):
+            result["prevent_build_topic"] = cfg.get("gerrit", "prevent_build_topic")
+        else:
+            result["prevent_build_topic"] = DEFAULT_PREVENT_BUILD_TOPIC
     else:
         LOGGER.debug("No gerrit section in git config, using environment variables as fallback configuration")
         for key in keys:
             result[key] = os.environ.get(f"GERRIT_{key.upper()}", None)
 
         result["trigger"] = os.environ.get("GERRIT_TRIGGER", DEFAULT_TRIGGER)
+        result["prevent_build_topic"] = os.environ.get("GERRIT_PREVENT_BUILD_TOPIC", DEFAULT_TRIGGER)
         if None in result.values():
             raise RuntimeError(
                 f"{base_error}: missing gerrit section in your git configuration and no fallback values in environment"
@@ -426,7 +434,6 @@ def get_changes_submitted_together(rest, changeid):
 
 @log_decorator
 def main():
-    args = parse_args()
     git_repo = get_git_root()
     git_config = git_repo.config_reader()
     try:
@@ -434,6 +441,7 @@ def main():
     except RuntimeError as e:
         LOGGER.error(str(e))
         sys.exit(1)
+    args = parse_args(gerrit_config)
     rest = get_gerrit_api(gerrit_config)
     args.commit_chain = None
     if args.commit:

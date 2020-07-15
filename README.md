@@ -17,15 +17,21 @@ After the package has been installed, its available via `git gerrit`.
 * `git config --add gerrit.host hostname.of.your.gerrit.instance`
 * `git config --add gerrit.user your_user_name`
 * `git config --add gerrit.token your_http_password`
+* `git config --add gerrit.prevent_build_topic noci
 
 Or alternative, you can set the same values into following environment variables:
 
 * GERRIT_HOST
 * GERRIT_USER
 * GERRIT_TOKEN
+* GERRIT_PREVENT_BUILD_TOPIC
 
 If you need to modify the the comment used by runverify action, you can optionally add env GERRIT_TRIGGER or gerrit.trigger
-git configuration option.
+git configuration option. If not set, defaults to `runverify` but you could also set it to `artifactoryupload` on repo basis.
+
+`prevent_build_topic` is a topic that is configured in the ci typically means that commits with that topic will not be build.
+This is helpful when working with commit chains (`--support-chain` flag) and only the HEAD of the relation should be build,
+not all the parents leading to the HEAD.  If not set, defaults to `NOCI`
 
 ## Usage
 
