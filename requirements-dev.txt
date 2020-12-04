@@ -13,4 +13,6 @@ flake8-polyfill
 flake8-return
 black
 python-language-server[all]
+gcg
+twine
 -r requirements.txt
