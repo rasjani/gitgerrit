@@ -84,6 +84,13 @@ def hashtag(rest, git_repo, args, gerrit_config):
 @log_decorator
 def get_git_root() -> git.repo.base.Repo:
     """ Tries to locate a the root of the current git repository and and returns Repo instance"""
+    ## Fix this to work correctly ..
+    entry = Path.cwd().absolute()
+    try:
+        return git.Repo(entry, search_parent_directories=True)
+    except Exception as error:
+        pass
+
     try:
         entry = Path(os.environ.get("WORKSPACE", ".")).absolute()
         return git.Repo(entry, search_parent_directories=True)
