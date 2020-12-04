@@ -4,6 +4,7 @@ from invoke import task
 from pathlib import Path
 import os
 import shutil
+import sys
 
 
 QUOTE = '"' if os.name == "nt" else "'"
@@ -47,17 +48,16 @@ def changelog(ctx, version=None):
     ctx.run(f"gcg -x -o {CHANGELOG} -O rpm {version}")
     filter_entries(CHANGELOG)
 
-
+@task
 def build(ctx):
-    pass
+    ctx.run(f"{sys.executable} setup.py sdist")
 
 
 @task
 def release(ctx, version=None):
     assert version != None
     changelog(ctx, version)
-    docs(ctx)
-    ctx.run(f"git add docs{os.path.sep}* {CHANGELOG}")
+    ctx.run("git add CHANGELOG")
     ctx.run(f"git commit -m {QUOTE}New Release {version}{QUOTE}")
     ctx.run(f"git tag {version}")
     build(ctx)
