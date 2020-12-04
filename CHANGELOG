@@ -1,0 +1,59 @@
+* Fri Dec 04 2020 Jani Mikkonen <jani.mikkonen@varjo.com> - 0.0.9
+- Added Review command (rev.6849db85)
+
+* Wed Jul 15 2020 Jani Mikkonen <jani.mikkonen@gmail.com> - 0.0.8
+- "noci" topic  now configurable. (rev.69546124)
+- Throw error if conditions are not met (rev.56c7bbe4)
+- mention that gerrit trigger is configurable now (rev.9eca6a89)
+
+* Sat Jul 11 2020 Jani Mikkonen <jani.mikkonen@gmail.com> - 0.0.7
+- black & few bug fixes (rev.fba3a150)
+- configurable trigger (rev.832e5197)
+- Updated readme (rev.207cbb73)
+- corrected app name (rev.f21c5d0a)
+- Rearranged and added better docs to arguments (rev.1890909e)
+
+* Fri Jul 10 2020 Jani Mikkonen <jani.mikkonen@varjo.com> - 0.0.6
+- If no hashtag provided, default to current branch (rev.89f4f021)
+
+* Fri Jul 10 2020 Jani Mikkonen <jani.mikkonen@varjo.com> - 0.0.5
+- Prepare functionality added: (rev.29d2e4d5)
+- Support for set/get hashtags (rev.4d2a69a2)
+- If topic contains NOCI, dont sent head topic.. (rev.dcdddd83)
+- fix topic log output (rev.7f659066)
+- bug fixes (rev.a2c7cfa6)
+- bug fixes (rev.c21be269)
+- lint fix (rev.716c1527)
+- Added public and private options and message fix (rev.e21432bf)
+- added ability to mark patches as ready for review (rev.49fc8c3f)
+
+* Thu Jul 09 2020 Jani Mikkonen <jani.mikkonen@gmail.com> - 0.0.4
+- Error logging and abandon action fixed (rev.c37f49de)
+
+* Thu Jul 09 2020 Jani Mikkonen <jani.mikkonen@gmail.com> - 0.0.3
+- bit more logging (rev.f286a567)
+
+* Wed Jul 08 2020 Jani Mikkonen <jani.mikkonen@gmail.com> - 0.0.2
+- Add requirements to package (rev.69b7f860)
+
+* Wed Jul 08 2020 Jani Mikkonen <jani.mikkonen@gmail.com> - 0.0.1
+- todo fixes (rev.ef920f14)
+- updated readme (rev.a9b5d067)
+- Added topic functionality (rev.ed392d73)
+- Abandon change requests added (rev.e3d079fb)
+- Black and flake8 modifications (rev.55c059e1)
+- Support for commit chains (rev.f7be8edf)
+- Fix votes printing (rev.be51e83c)
+- add black (rev.7ed814d8)
+- Error out if change is not present in gerrit. (rev.598988b4)
+- show all votes, even 0's (rev.c417aa71)
+- Ignore reviewer if there is no votes (rev.75ad24b6)
+- Try to find correct changeid (rev.96f8b354)
+- Make changeid & commit flags mutually exclusive (rev.3a8c6258)
+- logger instead of print (rev.4b6dd951)
+- missing log decorators added (rev.1c45e6ce)
+- can now check and trigger verifys (rev.f643d22d)
+- Allow reading configs also via env (rev.bb9bf568)
+- init (rev.90b53df0)
+
+
