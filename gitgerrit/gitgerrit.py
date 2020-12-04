@@ -232,9 +232,21 @@ def parse_args(gerrit_config):
     group.add_argument("--commit", default=None, metavar="N", type=str, help="Commit sha to operate on")
     sub_parsers = parser.add_subparsers()
 
-    review_parser = sub_parsers.add_parser("review", help="sends json review file into gerrit", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    review_parser.add_argument("--payload", action="store", type=Path, default=Path("gerrit_review.json"), metavar="F", help="gerrit review payload")
-    review_parser.add_argument("--trim-path-prefix", dest="path_prefixes", action="append", type=str, default=None, metavar="N", help="Path prefix(s) to remove")
+    review_parser = sub_parsers.add_parser(
+        "review", help="sends json review file into gerrit", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    review_parser.add_argument(
+        "--payload", action="store", type=Path, default=Path("gerrit_review.json"), metavar="F", help="gerrit review payload"
+    )
+    review_parser.add_argument(
+        "--trim-path-prefix",
+        dest="path_prefixes",
+        action="append",
+        type=str,
+        default=None,
+        metavar="N",
+        help="Path prefix(s) to remove",
+    )
     review_parser.set_defaults(cmd=review)
 
     runverify_parser = sub_parsers.add_parser(
@@ -438,6 +450,7 @@ def get_changes_submitted_together(rest, changeid):
         if e.response.status_code != 409:
             raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
+
 def _get_payload(payload_json, path_prefixes):
     def trim_prefixes(name, prefixes):
         for prefix in prefixes:
@@ -479,7 +492,7 @@ def review(rest, git_repo, args, gerrit_config):
         for commit in details["revisions"]:
             rev_in = details["revisions"][commit]["_number"]
             if rev_in > rev:
-             rev = rev_in
+                rev = rev_in
         return rev
 
     change_details = get_change_detail(rest, args.changeid)
