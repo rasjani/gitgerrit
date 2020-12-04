@@ -1,3 +1,6 @@
+* Fri Dec 04 2020 Jani Mikkonen <jani.mikkonen@varjo.com> - 0.0.10
+- Fix git root locatining (rev.283c3777)
+
 * Fri Dec 04 2020 Jani Mikkonen <jani.mikkonen@varjo.com> - 0.0.9
 - Added Review command (rev.6849db85)
 
