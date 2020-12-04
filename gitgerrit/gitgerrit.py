@@ -5,6 +5,8 @@ import argparse
 import sys
 import git
 import requests
+import json
+import ntpath
 from pygerrit2 import GerritRestAPI, HTTPBasicAuth
 from .logger import LOGGER, _APPNAME, LOG_LEVELS, log_decorator
 from ._version import get_versions
@@ -230,6 +232,11 @@ def parse_args(gerrit_config):
     group.add_argument("--commit", default=None, metavar="N", type=str, help="Commit sha to operate on")
     sub_parsers = parser.add_subparsers()
 
+    review_parser = sub_parsers.add_parser("review", help="sends json review file into gerrit", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    review_parser.add_argument("--payload", action="store", type=Path, default=Path("gerrit_review.json"), metavar="F", help="gerrit review payload")
+    review_parser.add_argument("--trim-path-prefix", dest="path_prefixes", action="append", type=str, default=None, metavar="N", help="Path prefix(s) to remove")
+    review_parser.set_defaults(cmd=review)
+
     runverify_parser = sub_parsers.add_parser(
         "runverify", help="Trigger or check +1 check state of change(s)", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -431,6 +438,61 @@ def get_changes_submitted_together(rest, changeid):
         if e.response.status_code != 409:
             raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
+def _get_payload(payload_json, path_prefixes):
+    def trim_prefixes(name, prefixes):
+        for prefix in prefixes:
+            name = name.lstrip(prefix)
+        return name.replace(ntpath.sep, "/")
+
+    payload = None
+    prefixes = sorted(path_prefixes, key=len)
+    regex = re.compile(r"^(?P<prio>\[.*?\]) .*:\d+:\d+: (?P<msg>.*)$", re.MULTILINE)
+    if not payload_json.exists():
+        LOGGER.error(f"Payload json {args.payload} doesn't exists")
+        sys.exit(1)
+
+    with payload_json.open() as f:
+        payload = json.load(f)
+
+    if "labels" in payload:
+        del payload["labels"]
+
+    comments = payload["comments"].copy()
+    for key in comments:
+        new_key = trim_prefixes(key, prefixes)
+        for item in comments[key]:
+            res = regex.match(item["message"])
+            if res:
+                item["message"] = f"{res.group('prio')} {res.group('msg')}"
+
+        payload["comments"][new_key] = comments[key].copy()
+        del payload["comments"][key]
+
+    LOGGER.debug(json.dumps(payload, indent=4))
+    return payload
+
+
+@log_decorator
+def review(rest, git_repo, args, gerrit_config):
+    def get_rev(details):
+        rev = 1
+        for commit in details["revisions"]:
+            rev_in = details["revisions"][commit]["_number"]
+            if rev_in > rev:
+             rev = rev_in
+        return rev
+
+    change_details = get_change_detail(rest, args.changeid)
+    rev = get_rev(change_details)
+    payload = _get_payload(args.payload, args.path_prefixes)
+    try:
+        return rest.post(f"/changes/{args.changeid}/revisions/{rev}/review", data=payload)
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
+        LOGGER.warning(e.response.text)
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({args.changeid}) cannot be found on remote gerrit server.")
+
 
 @log_decorator
 def main():
@@ -461,7 +523,6 @@ def main():
             )
             LOGGER.debug(args.commit_chain)
             args.changeid = args.commit_chain[0]
-
     try:
         args.cmd(rest, git_repo, args, gerrit_config)
     except RuntimeError as e:
