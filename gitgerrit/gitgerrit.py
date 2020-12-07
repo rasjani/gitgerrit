@@ -7,6 +7,7 @@ import git
 import requests
 import json
 import ntpath
+from typing import Union, Dict, List
 from pygerrit2 import GerritRestAPI, HTTPBasicAuth
 from .logger import LOGGER, _APPNAME, LOG_LEVELS, log_decorator
 from ._version import get_versions
@@ -254,6 +255,15 @@ def parse_args(gerrit_config):
         metavar="N",
         help="Path prefix(s) to remove",
     )
+    review_parser.add_argument(
+        "--robot_id",
+        dest="robot_id",
+        action="store",
+        type=str,
+        metavar="N",
+        default="clang-tidy",
+        help="Name of the checker use for producing review"
+    )
     review_parser.set_defaults(cmd=review)
 
     runverify_parser = sub_parsers.add_parser(
@@ -458,17 +468,19 @@ def get_changes_submitted_together(rest, changeid):
             raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
-def _get_payload(payload_json, path_prefixes):
+def _get_payload(payload_json, path_prefixes, robot_id):
     def trim_prefixes(name, prefixes):
         for prefix in prefixes:
             name = name.lstrip(prefix)
         return name.replace(ntpath.sep, "/")
 
+    if not path_prefixes:
+        path_prefixes = []
     payload = None
     prefixes = sorted(path_prefixes, key=len)
     regex = re.compile(r"^(?P<prio>\[.*?\]) .*:\d+:\d+: (?P<msg>.*)$", re.MULTILINE)
     if not payload_json.exists():
-        LOGGER.error(f"Payload json {args.payload} doesn't exists")
+        LOGGER.error(f"Payload json {payload_json} doesn't exists")
         sys.exit(1)
 
     with payload_json.open() as f:
@@ -478,19 +490,31 @@ def _get_payload(payload_json, path_prefixes):
         del payload["labels"]
 
     comments = payload["comments"].copy()
+    payload["robot_comments"] = {}
     for key in comments:
         new_key = trim_prefixes(key, prefixes)
         for item in comments[key]:
+            item["robot_id"] = "clang-tidy"
             res = regex.match(item["message"])
             if res:
                 item["message"] = f"{res.group('prio')} {res.group('msg')}"
+            item["robot_id"] = robot_id
+            item["robot_run_id"] = get_json_sem_hash(item)[0:8]
 
-        payload["comments"][new_key] = comments[key].copy()
-        del payload["comments"][key]
+        payload["robot_comments"][new_key] = comments[key].copy()
+
+    del payload["comments"]
 
     LOGGER.debug(json.dumps(payload, indent=4))
     return payload
 
+def get_robot_comments(rest, change, revision):
+    try:
+        return rest.get(f"/changes/{change}/revisions/{revision}/robotcomments")
+    except requests.exceptions.HTTPError as e:
+        LOGGER.debug(f"HTTP Error Occured: {str(e)}")
+        if e.response.status_code != 409:
+            raise RuntimeError(f"Provided change ({change}) cannot be found on remote gerrit server.")  # TODO: provide more meaningful error message
 
 @log_decorator
 def review(rest, git_repo, args, gerrit_config):
@@ -504,7 +528,10 @@ def review(rest, git_repo, args, gerrit_config):
 
     change_details = get_change_detail(rest, args.changeid)
     rev = get_rev(change_details)
-    payload = _get_payload(args.payload, args.path_prefixes)
+    payload = _get_payload(args.payload, args.path_prefixes, args.robot_id)
+    payload["omit_duplicate_comments"] = True
+    payload["notify"] = "OWNER"
+
     try:
         return rest.post(f"/changes/{args.changeid}/revisions/{rev}/review", data=payload)
     except requests.exceptions.HTTPError as e:
