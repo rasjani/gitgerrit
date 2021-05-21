@@ -93,3 +93,9 @@ For more details: `git gerrit prepare -h`
 Abandon change(s)
 For more details: `git gerrit abandon -h`
 
+### review
+Sends given payload json file as a review.
+Command relies on 3rd party tools to create valid payload file for "set review" end point.
+For example tool like codechecker's `cmd diff` can be used to generate the payload.
+
+For more details: `git gerrit review -h`

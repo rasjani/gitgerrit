@@ -16,6 +16,7 @@ __version__ = get_versions()["version"]
 DEFAULT_TRIGGER = "runverify"
 DEFAULT_PREVENT_BUILD_TOPIC = "NOCI"
 RE_CHANGEID = re.compile(r"change-id:\s+(?P<changeid>I[a-z0-9]+)", re.IGNORECASE | re.MULTILINE)
+NOTIFY_OPTIONS = ["NONE", "OWNER", "OWNER_REVIEWERS", "ALL"]
 
 
 @log_decorator
@@ -255,8 +256,7 @@ def parse_args(gerrit_config):
         metavar="N",
         help="Path prefix(s) to remove",
     )
-    review_parser.add_argument(
-        "--robot_id",
+    review_parser.add_argument("--robot_id",
         dest="robot_id",
         action="store",
         type=str,
@@ -264,6 +264,16 @@ def parse_args(gerrit_config):
         default="clang-tidy",
         help="Name of the checker use for producing review"
     )
+    review_parser.add_argument("-n", "--notify",
+        dest="notify",
+        action="store",
+        type=str,
+        metavar="N",
+        choices=NOTIFY_OPTIONS,
+        default=NOTIFY_OPTIONS[0],
+        help=f"To whom should notification email send about this review. Available options: {','.join(NOTIFY_OPTIONS)}"
+    )
+    review_parser.add_argument("-k", "--keep-labels", dest="keep_labels", action="store_true", default=False, help="If payload has votes, do not remove them.")
     review_parser.set_defaults(cmd=review)
 
     runverify_parser = sub_parsers.add_parser(
@@ -468,7 +478,7 @@ def get_changes_submitted_together(rest, changeid):
             raise RuntimeError(f"Provided change ({changeid}) cannot be found on remote gerrit server.")
 
 
-def _get_payload(payload_json, path_prefixes, robot_id):
+def _get_payload(payload_json, keep_labels, path_prefixes, robot_id):
     def trim_prefixes(name, prefixes):
         for prefix in prefixes:
             name = name.lstrip(prefix)
@@ -486,7 +496,7 @@ def _get_payload(payload_json, path_prefixes, robot_id):
     with payload_json.open() as f:
         payload = json.load(f)
 
-    if "labels" in payload:
+    if not keep_labels and "labels" in payload:
         del payload["labels"]
 
     comments = payload["comments"].copy()
@@ -528,9 +538,9 @@ def review(rest, git_repo, args, gerrit_config):
 
     change_details = get_change_detail(rest, args.changeid)
     rev = get_rev(change_details)
-    payload = _get_payload(args.payload, args.path_prefixes, args.robot_id)
+    payload = _get_payload(args.payload, args.path_prefixes, args.keep_labels, args.robot_id)
     payload["omit_duplicate_comments"] = True
-    payload["notify"] = "OWNER"
+    payload["notify"] = args.notify
 
     try:
         return rest.post(f"/changes/{args.changeid}/revisions/{rev}/review", data=payload)
